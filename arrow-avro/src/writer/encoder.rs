@@ -20,6 +20,7 @@
 use crate::codec::{AvroDataType, AvroField, Codec};
 use crate::schema::{Fingerprint, Nullability, Prefix};
 use arrow_array::cast::AsArray;
+use arrow_array::types::RunEndIndexType;
 use arrow_array::types::{
     ArrowPrimitiveType, Date32Type, DurationMicrosecondType, DurationMillisecondType,
     DurationNanosecondType, DurationSecondType, Float32Type, Float64Type, Int16Type, Int32Type,
