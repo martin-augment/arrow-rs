@@ -613,6 +613,71 @@ def test_table_pycapsule():
     assert len(table.to_batches()) == len(new_table.to_batches())
 
 
+def test_table_empty():
+    """
+    Python -> Rust -> Python
+    """
+    schema = pa.schema([('ints', pa.list_(pa.int32()))], metadata={b'key1': b'value1'})
+    table = pa.Table.from_batches([], schema=schema)
+    new_table = rust.build_table([], schema=schema)
+
+    assert table.schema == new_table.schema
+    assert table == new_table
+    assert len(table.to_batches()) == len(new_table.to_batches())
+
+
+def test_table_roundtrip():
+    """
+    Python -> Rust -> Python
+    """
+    metadata = {b'key1': b'value1'}
+    schema = pa.schema([('ints', pa.list_(pa.int32()))], metadata=metadata)
+    batches = [
+        pa.record_batch([[[1], [2, 42]]], schema),
+        pa.record_batch([[None, [], [5, 6]]], schema),
+    ]
+    table = pa.Table.from_batches(batches, schema=schema)
+    # TODO: Remove these `assert`s as soon as the metadata issue is solved in Rust
+    assert table.schema.metadata == metadata
+    assert all(batch.schema.metadata == metadata for batch in table.to_batches())
+    new_table = rust.round_trip_table(table)
+
+    assert table.schema == new_table.schema
+    assert table == new_table
+    assert len(table.to_batches()) == len(new_table.to_batches())
+
+
+def test_table_from_batches():
+    """
+    Python -> Rust -> Python
+    """
+    schema = pa.schema([('ints', pa.list_(pa.int32()))], metadata={b'key1': b'value1'})
+    batches = [
+        pa.record_batch([[[1], [2, 42]]], schema),
+        pa.record_batch([[None, [], [5, 6]]], schema),
+    ]
+    table = pa.Table.from_batches(batches)
+    new_table = rust.build_table(batches, schema)
+
+    assert table.schema == new_table.schema
+    assert table == new_table
+    assert len(table.to_batches()) == len(new_table.to_batches())
+
+
+def test_table_error_inconsistent_schema():
+    """
+    Python -> Rust -> Python
+    """
+    schema_1 = pa.schema([('ints', pa.list_(pa.int32()))])
+    schema_2 = pa.schema([('floats', pa.list_(pa.float32()))])
+    batches = [
+        pa.record_batch([[[1], [2, 42]]], schema_1),
+        pa.record_batch([[None, [], [5.6, 6.4]]], schema_2),
+    ]
+    with pytest.raises(pa.ArrowException, match="Schema error: All record batches must have the same schema."):
+        rust.build_table(batches, schema_1)
+
+
 def test_reject_other_classes():
     # Arbitrary type that is not a PyArrow type
     not_pyarrow = ["hello"]
